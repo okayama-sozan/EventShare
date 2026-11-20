@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "CLOUDFLARE_ENV=production react-router build",
+    "build": "node scripts/migrate-remote-on-build.mjs && CLOUDFLARE_ENV=production react-router build",
     "dev": "react-router dev",
     "typecheck": "wrangler types && react-router typegen && tsc -b",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run db:migrate:remote && npm run build && wrangler deploy",
     "preview": "npm run build && vite preview",
     "cf-typegen": "wrangler types",
     "postinstall": "wrangler types && node scripts/patch-wrangler-secrets-check.mjs",
@@ -15,6 +15,7 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote --env production",
     "db:migrate:preview": "wrangler d1 migrations apply DB --remote --config wrangler.preview-migrations.jsonc",
+    "db:migrate:status": "wrangler d1 migrations list DB --remote --env production",
     "db:seed:dev": "node scripts/seed-dev.mjs",
     "admin:grant": "node scripts/grant-admin.mjs"
   },
