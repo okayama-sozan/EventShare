@@ -21,7 +21,7 @@ import { hostnameOf } from "~/lib/url";
 import { getEventPhase } from "~/lib/event-phase";
 import { getConfig } from "../config";
 import type { Database } from "../db";
-import { chunkForD1 } from "../db/utils";
+import { chunkForD1, isMissingSchemaError, schemaBehindError } from "../db/utils";
 import {
   eventBookmarks,
   eventContributions,
@@ -48,12 +48,17 @@ const THREE_YEARS_MS = 3 * 365.25 * 86_400_000;
 export async function ensureSeriesFor(db: Database, input: { title: string; userId: string | null }) {
   const id = crypto.randomUUID();
   const title = displaySeriesTitle(input.title);
-  await db.insert(eventSeries).values({
-    id,
-    title,
-    matchKey: seriesMatchKey(title),
-    createdById: input.userId,
-  });
+  try {
+    await db.insert(eventSeries).values({
+      id,
+      title,
+      matchKey: seriesMatchKey(title),
+      createdById: input.userId,
+    });
+  } catch (error) {
+    if (isMissingSchemaError(error)) throw schemaBehindError(error);
+    throw error;
+  }
   return id;
 }
 

@@ -1,6 +1,6 @@
 import { data, Link, useFetcher } from "react-router";
 import { getConfig } from "~/.server/config";
-import { createDb } from "~/.server/db";
+import { createDbReady } from "~/.server/db";
 import { getSeriesDetail, unwatchSeries, watchSeries } from "~/.server/services/series";
 import { enforceRateLimit } from "~/.server/rate-limit";
 import { getUser, isAdmin, requireUser } from "~/.server/session";
@@ -22,7 +22,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export async function loader({ params, context }: Route.LoaderArgs) {
-  const db = createDb();
+  const db = await createDbReady();
   const { timeZone } = getConfig();
   const viewer = getUser(context);
   const detail = await getSeriesDetail(db, params.id, viewer?.id ?? null, timeZone);
@@ -63,7 +63,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   await enforceRateLimit("write", user.id);
   const intent = String((await request.formData()).get("intent"));
   if (intent !== "watch" && intent !== "unwatch") throw data("不正なリクエストです", { status: 400 });
-  const db = createDb();
+  const db = await createDbReady();
   const ok =
     intent === "watch"
       ? await watchSeries(db, user.id, params.id)

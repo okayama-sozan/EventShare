@@ -20,6 +20,7 @@ import type { SortKey } from "~/lib/labels";
 import { MAX_TAG_LENGTH, MAX_TAGS_PER_EVENT, normalizeTagName, TAG_FACET_ORDER } from "~/lib/tags";
 import { escapeLike, normalizeForMatch, truncate } from "~/lib/text";
 import { normalizeUrl } from "~/lib/url";
+import { env } from "cloudflare:workers";
 import type { Database } from "../db";
 import {
   categories,
@@ -31,6 +32,7 @@ import {
   tags,
   type Event,
 } from "../db/schema";
+import { ensureSeriesSchema } from "../db/utils";
 import {
   EVENT_FIELD_LABEL,
   EVENT_FIELDS,
@@ -502,6 +504,8 @@ export async function createEvent(
   imageMediaId: string | null,
   timeZone: string,
 ) {
+  // Fail with an actionable message when 0002/0003 were never applied on this D1.
+  await ensureSeriesSchema(env.DB);
   const id = crypto.randomUUID();
   const fields = pickFields(input);
   const seriesId =

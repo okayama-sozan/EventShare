@@ -129,6 +129,7 @@ curl -s -X POST http://localhost:5173/mcp \
 | `npm test` | ユニットテスト（Vitest） |
 | `npm run db:generate` | スキーマ変更からマイグレーション SQL を生成（`drizzle/migrations`） |
 | `npm run db:migrate:local` / `db:migrate:remote` | マイグレーションの適用（ローカル / 本番） |
+| `npm run db:migrate:status` | 本番 D1 の未適用マイグレーション一覧 |
 | `npm run db:seed:dev` | ローカル DB にサンプルデータを投入（本番には実行できません） |
 | `npm run admin:grant -- <email> [--remote]` | 管理者権限の付与 |
 
@@ -137,7 +138,17 @@ curl -s -X POST http://localhost:5173/mcp \
 1. `app/.server/db/schema.ts` を編集
 2. `npm run db:generate` で SQL を生成し、内容を確認してコミット
 3. `npm run db:migrate:local` で適用・動作確認
-4. デプロイ前に `npm run db:migrate:remote`
+4. デプロイ前に `npm run db:migrate:remote`（`npm run deploy` はこれを含みます）
+
+Worker のコードだけ先にデプロイして D1 マイグレーションを忘れると、`POST /events/new.data` が `ensureSeriesFor` 付近で 500 になります（`event_series` / `tags` が無い）。すぐ直すには:
+
+```bash
+npx wrangler login   # 本番アカウント（event-share-prod がある方）
+npm run db:migrate:status
+npm run db:migrate:remote
+```
+
+Workers Builds のビルドでは `CLOUDFLARE_API_TOKEN` があるとき `npm run build` が本番マイグレーションも適用します。トークンに **Account → D1 → Edit** が必要です。無い場合は上の手動コマンドを使ってください。
 
 ## デプロイ（Cloudflare）
 
@@ -156,15 +167,15 @@ npx wrangler r2 bucket create event-share-media-prod
 npx wrangler secret put BETTER_AUTH_SECRET --env production
 npx wrangler secret put GROQ_API_KEY --env production
 
-# 4. マイグレーションを適用
-npm run db:migrate:remote
-
-# 5. ビルドしてデプロイ（build は本番環境を使います）
-npm run build
-npx wrangler deploy
+# 4. マイグレーションを適用してビルド＆デプロイ
+npm run deploy
+# または段階的に:
+# npm run db:migrate:remote
+# npm run build
+# npx wrangler deploy
 ```
 
-`npm run build` は `CLOUDFLARE_ENV=production` でビルドし、`build/server/wrangler.json` に本番の D1・R2・公開 URL を出力します。`wrangler deploy` はそれを使います。ローカル開発の `npm run dev` はこれまでどおりトップレベルの開発用設定です。Cloudflare の Git 連携もビルドコマンドが `npm run build` のまま、この本番設定でデプロイされます。
+`npm run build` は `CLOUDFLARE_ENV=production` でビルドし、`build/server/wrangler.json` に本番の D1・R2・公開 URL を出力します。`wrangler deploy` はそれを使います。ローカル開発の `npm run dev` はこれまでどおりトップレベルの開発用設定です。Cloudflare の Git 連携もビルドコマンドが `npm run build` のまま、この本番設定でデプロイされます（トークンに D1 Edit があればビルド時にマイグレーションも走ります）。
 
 ## セキュリティ
 
